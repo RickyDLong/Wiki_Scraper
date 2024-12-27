@@ -1,0 +1,23 @@
+# Python virtual environment
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Project specific files
+everquest_weapons.csv
+item_cache.sqlite
+*.csv
+*.log
+*.sqlite
+*.db
+
+# IDE settings
+.vscode/
+*.code-workspace
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
