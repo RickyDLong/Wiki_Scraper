@@ -1,7 +1,7 @@
 # Project specific files
-everquest_weapons.csv
+
 item_cache.sqlite
-*.csv
+
 *.log
 *.sqlite
 *.db

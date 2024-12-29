@@ -146,16 +146,34 @@ class ItemScraper:
     def scrape_items(self, urls):
         """Scrape multiple item URLs"""
         items = []
-        for url in track(urls, description="Scraping items..."):
-            try:
-                item = self.scrape_item_page(url)
-                if item:
-                    items.append(item)
-            except Exception as e:
-                print(f"[red]Error scraping {url}: {e}[/red]")
+        try:
+            for url in track(urls, description="Scraping items..."):
+                try:
+                    # Skip category pages
+                    if "Category:" in url:
+                        continue
+                        
+                    item = self.scrape_item_page(url)
+                    if item and item.attributes:  # Validate item has data
+                        items.append(item)
+                        print(f"[green]Successfully scraped: {item.name}[/green]")
+                except Exception as e:
+                    print(f"[red]Error scraping {url}: {e}[/red]")
+                    self.failed_items.append(url)
+                    
+            if items:
+                print(f"\n[cyan]Found {len(items)} valid items[/cyan]")
+                self._export_items(items)
+            else:
+                print("[yellow]No valid items found to process[/yellow]")
                 
-        self._export_items(items)
-        return items
+            return items
+            
+        except Exception as e:
+            print(f"[red]Fatal error in scrape_items: {e}[/red]")
+            import traceback
+            print(traceback.format_exc())
+            return []
 
     def scrape_item_page(self, url):
         """Scrape single item page"""
@@ -243,7 +261,7 @@ class ItemScraper:
                         full_url = self.base_url + href
                         if full_url not in links:
                             links.add(full_url)
-                            print(f"Found new item: {item.text}")
+                            print(f"[cyan]Found new item:[/cyan] [yellow]{item.text}[/yellow]")
                             found_items = True
                             last_item_this_page = item.text
                 
@@ -262,16 +280,39 @@ class ItemScraper:
             print(f"[red]Error extracting items: {e}[/red]")
             return []
 
+
     def scrape_category(self, category_url):
         """Scrape all items in a category"""
         try:
-            print(f"\nProcessing category: {category_url.split('/')[-1]}")
+            category_name = category_url.split('/')[-1]
+            print(f"\n[bold blue]Processing category: {category_name}[/bold blue]")
+            
             urls = self._extract_category_items(category_url)
             if not urls:
-                print("[yellow]No items found![/yellow]")
+                print("[yellow]No items found in category![/yellow]")
                 return []
                 
-            return self.scrape_items(urls)
+            # Scrape items for this category
+            items = []
+            for url in track(urls, description=f"Scraping {category_name}..."):
+                try:
+                    if "Category:" in url:
+                        continue
+                        
+                    item = self.scrape_item_page(url)
+                    if item and item.attributes:
+                        items.append(item)
+                        
+                except Exception as e:
+                    print(f"[red]Error scraping {url}: {e}[/red]")
+                    self.failed_items.append(url)
+            
+            # Export category items immediately
+            if items:
+                print(f"[green]Found {len(items)} items in {category_name}[/green]")
+                self._export_items(items)
+                
+            return items
             
         except Exception as e:
             print(f"[red]Error processing category: {e}[/red]")
@@ -280,11 +321,17 @@ class ItemScraper:
     def crawl_categories(self):
         """Crawl equipment categories"""
         categories = [
-            "/Category:Ammo",
-            "/Category:Primary",
-            "/Category:Range",
-            "/Category:Secondary" 
-        ]
+        # Equipment Categories
+        "/Category:Arms", "/Category:Back", "/Category:Chest",
+        "/Category:Ear", "/Category:Face", "/Category:Feet",
+        "/Category:Fingers", "/Category:Hands", "/Category:Head",
+        "/Category:Legs", "/Category:Neck", "/Category:Shoulders",
+        "/Category:Waist", "/Category:Wrist",
+        
+        # Weapon Categories
+        "/Category:Ammo", "/Category:Primary",
+        "/Category:Range", "/Category:Secondary"
+    ]
         
         all_items = []
         for category in categories:
@@ -296,12 +343,34 @@ class ItemScraper:
             print("[red]No items found![/red]")
         return all_items
 
-    def main():
-        """Main entry point"""
-        print("\nStarting EverQuest Item Scraper...\n")
+def main():
+    """Main entry point"""
+    try:
+        print("\n[bold blue]Starting EverQuest Item Scraper...[/bold blue]\n")
         
-        scraper = ItemScraper("https://wiki.project1999.com", "output")
-        scraper.crawl_categories()
+        # Initialize scraper
+        base_url = "https://wiki.project1999.com"
+        output_dir = "output"
+        
+        print(f"[cyan]Base URL: {base_url}[/cyan]")
+        print(f"[cyan]Output Directory: {output_dir}[/cyan]\n")
+        
+        # Create and run scraper
+        scraper = ItemScraper(base_url, output_dir)
+        items = scraper.crawl_categories()
+        
+        # Report results
+        print(f"\n[green]Successfully processed {len(items)} items[/green]")
+        if scraper.failed_items:
+            print(f"[yellow]Failed to process {len(scraper.failed_items)} items[/yellow]")
+            
+    except Exception as e:
+        print(f"[red]Fatal error: {e}[/red]")
+        import traceback
+        print(traceback.format_exc())
+        return 1
+        
+    return 0
 
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    exit(main())
